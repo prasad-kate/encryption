@@ -15,7 +15,7 @@ const encryptAESKey = (
   return crypto.publicEncrypt(publicKey, aesKey);
 };
 
-router.post("/encryption", (req, res) => {
+router.post("get-aes-key", (req, res) => {
   try {
     const { publicKey } = req.body;
     const bufferPublicKey = Buffer.from(publicKey, "base64");
