@@ -1,38 +1,40 @@
-import crypto, { KeyObject } from "crypto";
 import express from "express";
+import { randomBytes, publicEncrypt, constants, createPublicKey } from "crypto";
+
 const router = express.Router();
 
-// Generate a random AES key
-const generateAESKey = () => {
-  return crypto.randomBytes(32); // AES-256 key
-};
+// Endpoint to return an encrypted AES key
+router.post("/get-encrypted-aes-key", (req, res) => {
+  const { publicKey } = req.body;
 
-// Encrypt the AES key using the client's RSA public key
-const encryptAESKey = (
-  publicKey: string | Buffer | KeyObject,
-  aesKey: Buffer
-) => {
-  return crypto.publicEncrypt(publicKey, aesKey);
-};
+  if (!publicKey) {
+    return res.status(400).json({ error: "Public key is required." });
+  }
 
-router.post("get-aes-key", (req, res) => {
   try {
-    const { publicKey } = req.body;
-    const bufferPublicKey = Buffer.from(publicKey, "base64");
+    // Generate a random AES key (256-bit)
+    const aesKey = randomBytes(32);
 
-    // Generate a random AES key
-    const aesKey = generateAESKey();
-
-    // Encrypt the AES key using the provided RSA public key
-    const encryptedAESKey = encryptAESKey(bufferPublicKey, aesKey);
-
-    // Send the encrypted AES key back as a Base64 string
-    res.json({
-      encryptedAESKey: encryptedAESKey.toString("base64"),
+    // Create a KeyObject from the public key in PEM format
+    const keyObject = createPublicKey({
+      key: `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`,
+      format: "pem", // Specify the format as PEM
     });
-  } catch (err) {
-    console.error("Error encrypting AES key:", err);
-    res.status(500).send("Error encrypting AES key");
+
+    // Encrypt the AES key using the public key
+    const encryptedAESKey = publicEncrypt(
+      {
+        key: keyObject,
+        padding: constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash: "sha256",
+      },
+      aesKey
+    );
+
+    // Return the encrypted AES key as a Base64 string
+    res.json({ encryptedAESKey: encryptedAESKey.toString("base64") });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 

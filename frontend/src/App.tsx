@@ -1,12 +1,10 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
 import Home from "./components/Home";
-import { useCrypto } from "./hooks/useEncryption";
 
 function App() {
   // TODO: setup for tanstack query
   // const queryClient = new QueryClient();
-  useCrypto();
   return (
     <>
       {/* <QueryClientProvider client={queryClient}> */}

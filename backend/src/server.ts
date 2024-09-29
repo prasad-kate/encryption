@@ -1,20 +1,23 @@
-import express from "express";
-import homePageRoutes from "./routes/home.route";
-import encrptionRoutes from "./routes/encryption.routes";
+import bodyParser from "body-parser";
 import cors from "cors";
+import express from "express";
+import encrptionRoutes from "./routes/encryption.routes";
+import homePageRoutes from "./routes/home.route";
 
 const app = express();
 const port = 8000; // temp hardcoding 8000
 
 app.use(
   cors({
-    origin: "http://localhost:5173", // Replace with your frontend's URL
+    origin: "http://localhost:5173",
     methods: "GET,POST,PUT,DELETE",
     credentials: true,
   })
 );
 
 app.use(express.json());
+app.use(bodyParser.json());
+
 app.use("/", homePageRoutes);
 app.use("/api/encryption", encrptionRoutes);
 
