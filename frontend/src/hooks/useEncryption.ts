@@ -1,32 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { requestEncryptedAESKey } from "../services/encryption.service";
 
-export default function useEncryptionKeys() {
-  const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
-  const [publicKey, setPublicKey] = useState<CryptoKey | null>(null);
+export const useGetEncryptionKeys = () => {
+  const [encryptedAesKey, setEncryptedAesKey] = useState<string>("");
 
+  // Store privateKey outside of state
+  const privateKeyRef = useRef<CryptoKey | null>(null);
+
+  // useEffect to generate keys and request encrypted AES key on component mount
   useEffect(() => {
-    // Generate RSA key pair
-    const generateKeyPair = async () => {
-      const keyPair = await window.crypto.subtle.generateKey(
-        {
-          name: "RSA-OAEP",
-          modulusLength: 2048,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: "SHA-256",
-        },
-        true,
-        ["encrypt", "decrypt"]
-      );
+    (async () => {
+      try {
+        // Step 1: Generate RSA key pair
+        const keyPair = await generateRSAKeyPair();
 
-      setPublicKey(keyPair.publicKey);
-      setPrivateKey(keyPair.privateKey);
+        const generatedPrivateKey = keyPair.privateKey;
+        const generatedPublicKey = await exportPublicKey(keyPair.publicKey);
+
+        // Step 2: Request the encrypted AES key from the backend
+        const receivedEncryptedAESKey = await requestEncryptedAESKey(
+          generatedPublicKey
+        );
+
+        privateKeyRef.current = generatedPrivateKey;
+        setEncryptedAesKey(receivedEncryptedAESKey);
+      } catch (error) {
+        console.error("Error during encryption setup:", error);
+      }
+    })();
+
+    // Cleanup function to clear privateKey when component unmounts
+    return () => {
+      privateKeyRef.current = null;
     };
-
-    generateKeyPair();
-  }, []); // Empty dependency array to run once on load
-
-  return { publicKey, privateKey };
-}
+  }, []); // Empty dependency array ensures this runs only once on mount
+  return { encryptedAesKey, privateKey: privateKeyRef.current };
+};
 
 export const decryptAESKey = async (
   privateKey: CryptoKey | null,
@@ -54,23 +63,25 @@ export const decryptAESKey = async (
   return hexKey;
 };
 
-export async function generateRSAKeyPair(): Promise<{
-  publicKey: CryptoKey;
-  privateKey: CryptoKey;
-}> {
-  const { publicKey, privateKey } = await window.crypto.subtle.generateKey(
+// Function to generate RSA key pair
+export const generateRSAKeyPair = async (): Promise<CryptoKeyPair> => {
+  return await window.crypto.subtle.generateKey(
     {
       name: "RSA-OAEP",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: { name: "SHA-256" },
+      modulusLength: 2048, // Key size in bits
+      publicExponent: new Uint8Array([1, 0, 1]), // 65537
+      hash: "SHA-256", // Hashing algorithm
     },
-    true, // Extractable
-    ["encrypt", "decrypt"]
+    true, // Whether the key is extractable
+    ["encrypt", "decrypt"] // Key usages
   );
+};
 
-  return { publicKey, privateKey };
-}
+// Function to export public key
+export const exportPublicKey = async (key: CryptoKey): Promise<string> => {
+  const exported = await window.crypto.subtle.exportKey("spki", key);
+  return btoa(String.fromCharCode(...new Uint8Array(exported))); // Convert to Base64
+};
 
 // Convert a hexadecimal string to a Uint8Array
 const hexToUint8Array = (hexString: string): Uint8Array => {
@@ -161,3 +172,20 @@ export const decryptDataWithAES = async (
 
   return new TextDecoder().decode(decryptedData);
 };
+
+// // logic to test encryption and decrytion
+// (async () => {
+//   const aesKey = await decryptAESKey(privateKeyRef.current, encryptedAesKey);
+
+//   if (!aesKey) return;
+
+//   // Encrypt data
+//   const { iv, encryptedData } = await encryptDataWithAES(
+//     aesKey,
+//     "Hello World!"
+//   );
+
+//   // Decrypt data
+//   const decryptedData = await decryptDataWithAES(aesKey, iv, encryptedData);
+//   console.log(decryptedData);
+// })();
