@@ -29,9 +29,11 @@ export default function useEncryptionKeys() {
 }
 
 export const decryptAESKey = async (
-  privateKey: CryptoKey,
+  privateKey: CryptoKey | null,
   encryptedAESKey: string
 ) => {
+  if (!privateKey) return;
+
   const encryptedKeyBuffer = Uint8Array.from(atob(encryptedAESKey), (c) =>
     c.charCodeAt(0)
   );
@@ -44,40 +46,12 @@ export const decryptAESKey = async (
     encryptedKeyBuffer
   );
 
-  return new Uint8Array(decryptedAESKey); // This is the decrypted AES key
-};
-
-export const encryptDataWithAES = async (aesKey: CryptoKey, data: string) => {
-  const iv = crypto.getRandomValues(new Uint8Array(12)); // Initialization vector
-  const encodedData = new TextEncoder().encode(data);
-
-  const encryptedData = await window.crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv: iv,
-    },
-    aesKey, // Now this is the imported CryptoKey
-    encodedData
-  );
-
-  return { iv, encryptedData: new Uint8Array(encryptedData) };
-};
-
-export const decryptDataWithAES = async (
-  aesKey: CryptoKey,
-  iv: Uint8Array,
-  encryptedData: Uint8Array
-) => {
-  const decryptedData = await window.crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: iv,
-    },
-    aesKey, // Now this is the imported CryptoKey
-    encryptedData
-  );
-
-  return new TextDecoder().decode(decryptedData);
+  // Convert the decrypted AES key to a hex string
+  const decryptedKeyArray = new Uint8Array(decryptedAESKey);
+  const hexKey = Array.from(decryptedKeyArray)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return hexKey;
 };
 
 export async function generateRSAKeyPair(): Promise<{
@@ -98,77 +72,69 @@ export async function generateRSAKeyPair(): Promise<{
   return { publicKey, privateKey };
 }
 
-const decryptAESKeyUtil = async (
-  privateKey: CryptoKey,
-  encryptedAESKey: string
-): Promise<CryptoKey> => {
-  const encryptedKeyBuffer = Uint8Array.from(atob(encryptedAESKey), (c) =>
-    c.charCodeAt(0)
-  );
-
-  const decryptedAESKey = await window.crypto.subtle.decrypt(
-    {
-      name: "RSA-OAEP",
-    },
-    privateKey,
-    encryptedKeyBuffer
-  );
-
-  // Now import the AES key as a CryptoKey object
-  return window.crypto.subtle.importKey(
-    "raw", // raw format of the key
-    new Uint8Array(decryptedAESKey), // the decrypted key
-    { name: "AES-GCM" }, // the algorithm the key will be used with
-    true, // whether the key is extractable (can be used for exporting later)
-    ["encrypt", "decrypt"] // what the key will be used for
+// Convert a hexadecimal string to a Uint8Array
+const hexToUint8Array = (hexString: string): Uint8Array => {
+  return new Uint8Array(
+    hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
   );
 };
 
-export const encryptMessage = async (
-  privateKey: CryptoKey,
-  encryptedAESKey: string,
-  message: string
-) => {
-  // Step 1: Decrypt the AES key
-  const aesKey = await decryptAESKeyUtil(privateKey, encryptedAESKey);
+// Import the AES key from a hexadecimal string
+const importAESKey = async (hexKey: string): Promise<CryptoKey> => {
+  const rawKey = hexToUint8Array(hexKey);
 
-  // Step 2: Encrypt the message using the AES key
+  // Import the raw key into the CryptoKey format
+  const aesKey = await crypto.subtle.importKey(
+    "raw", // The key is raw binary
+    rawKey, // The key in Uint8Array format
+    "AES-GCM", // Algorithm name
+    true, // Extractable (whether the key can be exported)
+    ["encrypt", "decrypt"] // Usages
+  );
+
+  return aesKey;
+};
+
+// Encrypt data using the AES-GCM algorithm with a hex key
+export const encryptDataWithAES = async (
+  hexKey: string,
+  data: string
+): Promise<{ iv: Uint8Array; encryptedData: Uint8Array }> => {
+  // Import the AES key from the hex string
+  const aesKey = await importAESKey(hexKey);
+
   const iv = crypto.getRandomValues(new Uint8Array(12)); // Initialization vector
-  const encodedData = new TextEncoder().encode(message);
+  const encodedData = new TextEncoder().encode(data);
 
   const encryptedData = await window.crypto.subtle.encrypt(
     {
       name: "AES-GCM",
       iv: iv,
     },
-    aesKey, // Use the decrypted AES key
+    aesKey, // Imported AES key
     encodedData
   );
 
-  return {
-    iv: iv, // Return the IV so it can be used during decryption
-    encryptedMessage: new Uint8Array(encryptedData), // The encrypted message
-  };
+  return { iv, encryptedData: new Uint8Array(encryptedData) };
 };
 
-export const decryptMessage = async (
-  privateKey: CryptoKey,
-  encryptedAESKey: string,
+// Decrypt data using the AES-GCM algorithm with a hex key
+export const decryptDataWithAES = async (
+  hexKey: string,
   iv: Uint8Array,
-  encryptedMessage: Uint8Array
-) => {
-  // Step 1: Decrypt the AES key
-  const aesKey = await decryptAESKeyUtil(privateKey, encryptedAESKey);
+  encryptedData: Uint8Array
+): Promise<string> => {
+  // Import the AES key from the hex string
+  const aesKey = await importAESKey(hexKey);
 
-  // Step 2: Decrypt the message using the AES key
   const decryptedData = await window.crypto.subtle.decrypt(
     {
       name: "AES-GCM",
       iv: iv,
     },
-    aesKey, // Use the decrypted AES key
-    encryptedMessage
+    aesKey, // Imported AES key
+    encryptedData
   );
 
-  return new TextDecoder().decode(decryptedData); // Return the decrypted message as a string
+  return new TextDecoder().decode(decryptedData);
 };

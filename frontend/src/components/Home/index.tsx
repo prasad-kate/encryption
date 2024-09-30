@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { requestEncryptedAESKey } from "../../services/encryption.service";
+import {
+  decryptAESKey,
+  decryptDataWithAES,
+  encryptDataWithAES,
+} from "../../hooks/useEncryption";
 
 const EncryptionComponent = () => {
   const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [encryptedAESKey, setEncryptedAESKey] = useState<string | null>(null);
+  const [encryptedAESKey, setEncryptedAESKey] = useState<string>("");
 
   // Function to generate RSA key pair
   const generateRSAKeyPair = async (): Promise<CryptoKeyPair> => {
@@ -28,25 +33,38 @@ const EncryptionComponent = () => {
 
   // useEffect to generate keys and request encrypted AES key on component mount
   useEffect(() => {
-    const initializeEncryption = async () => {
+    (async () => {
       try {
         // Step 1: Generate RSA key pair
         const keyPair = await generateRSAKeyPair();
         setPrivateKey(keyPair.privateKey); // Store the private key securely
         const pubKey = await exportPublicKey(keyPair.publicKey);
-        setPublicKey(pubKey); // Store the public key
+        setPublicKey(pubKey);
 
         // Step 2: Request the encrypted AES key from the backend
         const aesKey = await requestEncryptedAESKey(pubKey);
-        setEncryptedAESKey(aesKey); // Store the encrypted AES key
-        console.log("Encrypted AES Key:", aesKey);
+        setEncryptedAESKey(aesKey);
       } catch (error) {
         console.error("Error during encryption setup:", error);
       }
-    };
-
-    initializeEncryption();
+    })();
   }, []); // Empty dependency array ensures this runs only once on mount
+
+  (async () => {
+    const hexKey = await decryptAESKey(privateKey, encryptedAESKey);
+
+    if (!hexKey) return;
+
+    // Encrypt data
+    const { iv, encryptedData } = await encryptDataWithAES(
+      hexKey,
+      "Hello World!"
+    );
+
+    // Decrypt data
+    const decryptedData = await decryptDataWithAES(hexKey, iv, encryptedData);
+    console.log(decryptedData);
+  })();
 
   return (
     <div>
