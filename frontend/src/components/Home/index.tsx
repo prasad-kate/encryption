@@ -5,7 +5,7 @@ const EncryptionComponent = () => {
 
   return (
     <div>
-      <h1>Encryption Setup</h1>
+      <h1 className="text-red-300">Encryption Setup</h1>
       {encryptedAesKey && <p>Encrypted AES Key: {encryptedAesKey}</p>}
     </div>
   );
