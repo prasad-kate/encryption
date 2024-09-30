@@ -1,4 +1,5 @@
 import { BASE_URL } from "../api";
+import { messageData } from "../types";
 
 export const useGetAesKey = () => {
   const getAesKey = async (publicKey: CryptoKey) => {
@@ -50,7 +51,7 @@ export const sendMessage = async (payload: {
   encryptedData: string;
   iv: string;
 }) => {
-  const response = await fetch(`${BASE_URL}/api/encryption/message`, {
+  const response = await fetch(`${BASE_URL}/api/encryption/sendMessage`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -63,6 +64,23 @@ export const sendMessage = async (payload: {
   }
 
   return response.json();
+};
+
+// Function to fetch all messages from the backend
+export const fetchMessages = async (): Promise<messageData[]> => {
+  const response = await fetch(`${BASE_URL}/api/encryption/getMessages`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch messages.");
+  }
+
+  const data = await response.json();
+  return data.messages;
 };
 
 // TODO: approach with tanstack query
