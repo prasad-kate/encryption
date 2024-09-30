@@ -46,6 +46,25 @@ export const requestEncryptedAESKey = async (publicKey: string) => {
   return encryptedAESKey; // Return the encrypted AES key
 };
 
+export const sendMessage = async (payload: {
+  encryptedData: string;
+  iv: string;
+}) => {
+  const response = await fetch(`${BASE_URL}/api/encryption/message`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to send the message.");
+  }
+
+  return response.json();
+};
+
 // TODO: approach with tanstack query
 // export const useGetAesKey = () => {
 //   const { mutateAsync } = useMutation({
