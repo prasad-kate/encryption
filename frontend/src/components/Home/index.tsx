@@ -1,35 +1,18 @@
-import { useEffect, useState } from "react";
-import { requestEncryptedAESKey } from "../../services/encryption.service";
+import { useEffect, useRef, useState } from "react";
 import {
   decryptAESKey,
   decryptDataWithAES,
   encryptDataWithAES,
+  exportPublicKey,
+  generateRSAKeyPair,
 } from "../../hooks/useEncryption";
+import { requestEncryptedAESKey } from "../../services/encryption.service";
 
 const EncryptionComponent = () => {
-  const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [encryptedAESKey, setEncryptedAESKey] = useState<string>("");
+  const [encryptedAesKey, setEncryptedAesKey] = useState<string>("");
 
-  // Function to generate RSA key pair
-  const generateRSAKeyPair = async (): Promise<CryptoKeyPair> => {
-    return await window.crypto.subtle.generateKey(
-      {
-        name: "RSA-OAEP",
-        modulusLength: 2048, // Key size in bits
-        publicExponent: new Uint8Array([1, 0, 1]), // 65537
-        hash: "SHA-256", // Hashing algorithm
-      },
-      true, // Whether the key is extractable
-      ["encrypt", "decrypt"] // Key usages
-    );
-  };
-
-  // Function to export public key
-  const exportPublicKey = async (key: CryptoKey): Promise<string> => {
-    const exported = await window.crypto.subtle.exportKey("spki", key);
-    return btoa(String.fromCharCode(...new Uint8Array(exported))); // Convert to Base64
-  };
+  // Store privateKey outside of state
+  const privateKeyRef = useRef<CryptoKey | null>(null);
 
   // useEffect to generate keys and request encrypted AES key on component mount
   useEffect(() => {
@@ -37,40 +20,49 @@ const EncryptionComponent = () => {
       try {
         // Step 1: Generate RSA key pair
         const keyPair = await generateRSAKeyPair();
-        setPrivateKey(keyPair.privateKey); // Store the private key securely
-        const pubKey = await exportPublicKey(keyPair.publicKey);
-        setPublicKey(pubKey);
+
+        const generatedPrivateKey = keyPair.privateKey;
+        const generatedPublicKey = await exportPublicKey(keyPair.publicKey);
 
         // Step 2: Request the encrypted AES key from the backend
-        const aesKey = await requestEncryptedAESKey(pubKey);
-        setEncryptedAESKey(aesKey);
+        const receivedEncryptedAESKey = await requestEncryptedAESKey(
+          generatedPublicKey
+        );
+
+        privateKeyRef.current = generatedPrivateKey;
+        setEncryptedAesKey(receivedEncryptedAESKey);
       } catch (error) {
         console.error("Error during encryption setup:", error);
       }
     })();
+
+    // Cleanup function to clear privateKey when component unmounts
+    return () => {
+      privateKeyRef.current = null;
+    };
   }, []); // Empty dependency array ensures this runs only once on mount
 
+  // logic to test encryption and decrytion
   (async () => {
-    const hexKey = await decryptAESKey(privateKey, encryptedAESKey);
+    const aesKey = await decryptAESKey(privateKeyRef.current, encryptedAesKey);
 
-    if (!hexKey) return;
+    if (!aesKey) return;
 
     // Encrypt data
     const { iv, encryptedData } = await encryptDataWithAES(
-      hexKey,
+      aesKey,
       "Hello World!"
     );
 
     // Decrypt data
-    const decryptedData = await decryptDataWithAES(hexKey, iv, encryptedData);
+    const decryptedData = await decryptDataWithAES(aesKey, iv, encryptedData);
     console.log(decryptedData);
   })();
 
   return (
     <div>
       <h1>Encryption Setup</h1>
-      {publicKey && <p>Public Key: {publicKey}</p>}
-      {encryptedAESKey && <p>Encrypted AES Key: {encryptedAESKey}</p>}
+      {encryptedAesKey && <p>Encrypted AES Key: {encryptedAesKey}</p>}
     </div>
   );
 };

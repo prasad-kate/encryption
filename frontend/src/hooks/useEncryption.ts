@@ -54,23 +54,25 @@ export const decryptAESKey = async (
   return hexKey;
 };
 
-export async function generateRSAKeyPair(): Promise<{
-  publicKey: CryptoKey;
-  privateKey: CryptoKey;
-}> {
-  const { publicKey, privateKey } = await window.crypto.subtle.generateKey(
+// Function to generate RSA key pair
+export const generateRSAKeyPair = async (): Promise<CryptoKeyPair> => {
+  return await window.crypto.subtle.generateKey(
     {
       name: "RSA-OAEP",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: { name: "SHA-256" },
+      modulusLength: 2048, // Key size in bits
+      publicExponent: new Uint8Array([1, 0, 1]), // 65537
+      hash: "SHA-256", // Hashing algorithm
     },
-    true, // Extractable
-    ["encrypt", "decrypt"]
+    true, // Whether the key is extractable
+    ["encrypt", "decrypt"] // Key usages
   );
+};
 
-  return { publicKey, privateKey };
-}
+// Function to export public key
+export const exportPublicKey = async (key: CryptoKey): Promise<string> => {
+  const exported = await window.crypto.subtle.exportKey("spki", key);
+  return btoa(String.fromCharCode(...new Uint8Array(exported))); // Convert to Base64
+};
 
 // Convert a hexadecimal string to a Uint8Array
 const hexToUint8Array = (hexString: string): Uint8Array => {
