@@ -94,12 +94,27 @@ const importAESKey = async (hexKey: string): Promise<CryptoKey> => {
 
   return aesKey;
 };
+// Convert a Uint8Array to a Base64 string
+const arrayBufferToBase64 = (buffer: Uint8Array): string => {
+  return btoa(String.fromCharCode(...buffer));
+};
 
-// Encrypt data using the AES-GCM algorithm with a hex key
+// Convert a Base64 string to a Uint8Array
+const base64ToArrayBuffer = (base64: string): Uint8Array => {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
+// Encrypt data using the AES-GCM algorithm with a hex key, returning Base64 encoded result
 export const encryptDataWithAES = async (
   hexKey: string,
   data: string
-): Promise<{ iv: Uint8Array; encryptedData: Uint8Array }> => {
+): Promise<{ iv: string; encryptedData: string }> => {
   // Import the AES key from the hex string
   const aesKey = await importAESKey(hexKey);
 
@@ -115,25 +130,33 @@ export const encryptDataWithAES = async (
     encodedData
   );
 
-  return { iv, encryptedData: new Uint8Array(encryptedData) };
+  // Return both the IV and the encrypted data as Base64 encoded strings
+  return {
+    iv: arrayBufferToBase64(iv),
+    encryptedData: arrayBufferToBase64(new Uint8Array(encryptedData)),
+  };
 };
 
-// Decrypt data using the AES-GCM algorithm with a hex key
+// Decrypt data using the AES-GCM algorithm with a hex key, taking Base64 input
 export const decryptDataWithAES = async (
   hexKey: string,
-  iv: Uint8Array,
-  encryptedData: Uint8Array
+  iv: string,
+  encryptedData: string
 ): Promise<string> => {
   // Import the AES key from the hex string
   const aesKey = await importAESKey(hexKey);
 
+  // Convert the Base64-encoded IV and encrypted data back to Uint8Array
+  const ivBuffer = base64ToArrayBuffer(iv);
+  const encryptedDataBuffer = base64ToArrayBuffer(encryptedData);
+
   const decryptedData = await window.crypto.subtle.decrypt(
     {
       name: "AES-GCM",
-      iv: iv,
+      iv: ivBuffer,
     },
     aesKey, // Imported AES key
-    encryptedData
+    encryptedDataBuffer
   );
 
   return new TextDecoder().decode(decryptedData);
