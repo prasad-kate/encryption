@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { requestEncryptedAESKey } from "../services/encryption.service";
+import { useIndexedDB } from "./useIndexedDB";
 
 export const useGetEncryptionKeys = () => {
   const [encryptedAesKey, setEncryptedAesKey] = useState<string>("");
 
-  // Store privateKey outside of state
-  const privateKeyRef = useRef<CryptoKey | null>(null);
+  const { getPrivateKey, storeKeyPair, removeKeyPair } = useIndexedDB();
 
   // useEffect to generate keys and request encrypted AES key on component mount
   useEffect(() => {
@@ -14,7 +14,9 @@ export const useGetEncryptionKeys = () => {
         // Step 1: Generate RSA key pair
         const keyPair = await generateRSAKeyPair();
 
-        const generatedPrivateKey = keyPair.privateKey;
+        // store keypairs into indexedDB
+        storeKeyPair(keyPair);
+
         const generatedPublicKey = await exportPublicKey(keyPair.publicKey);
 
         // Step 2: Request the encrypted AES key from the backend
@@ -22,7 +24,6 @@ export const useGetEncryptionKeys = () => {
           generatedPublicKey
         );
 
-        privateKeyRef.current = generatedPrivateKey;
         setEncryptedAesKey(receivedEncryptedAESKey);
       } catch (error) {
         console.error("Error during encryption setup:", error);
@@ -31,14 +32,15 @@ export const useGetEncryptionKeys = () => {
 
     // Cleanup function to clear privateKey when component unmounts
     return () => {
-      privateKeyRef.current = null;
+      removeKeyPair();
     };
   }, []); // Empty dependency array ensures this runs only once on mount
-  return { encryptedAesKey, privateKey: privateKeyRef.current };
+
+  return { encryptedAesKey, getPrivateKey };
 };
 
 export const decryptAESKey = async (
-  privateKey: CryptoKey | null,
+  privateKey: CryptoKey | undefined,
   encryptedAESKey: string
 ) => {
   if (!privateKey) return;
@@ -72,7 +74,7 @@ export const generateRSAKeyPair = async (): Promise<CryptoKeyPair> => {
       publicExponent: new Uint8Array([1, 0, 1]), // 65537
       hash: "SHA-256", // Hashing algorithm
     },
-    true, // Whether the key is extractable
+    false, // Whether the key is extractable
     ["encrypt", "decrypt"] // Key usages
   );
 };

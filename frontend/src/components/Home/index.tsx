@@ -11,13 +11,15 @@ import { messageData } from "../../types";
 const EncryptionComponent = () => {
   const [message, setMessage] = useState<string>("");
   const [messageArray, setMessageArray] = useState<messageData[]>([]);
-  const { encryptedAesKey, privateKey } = useGetEncryptionKeys();
   const [decryptedMessages, setDecryptedMessages] = useState<string[]>([]);
+
+  const { encryptedAesKey, getPrivateKey } = useGetEncryptionKeys();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
+      const privateKey = await getPrivateKey().then((key) => key);
       const aesKey = await decryptAESKey(privateKey, encryptedAesKey);
 
       if (!message) {
@@ -45,6 +47,7 @@ const EncryptionComponent = () => {
   };
 
   const decryptMessages = async () => {
+    const privateKey = await getPrivateKey().then((key) => key);
     const aesKey = await decryptAESKey(privateKey, encryptedAesKey);
 
     if (!aesKey) return;
