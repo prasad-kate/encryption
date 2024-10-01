@@ -13,13 +13,15 @@ const EncryptionComponent = () => {
   const [messageArray, setMessageArray] = useState<messageData[]>([]);
   const [decryptedMessages, setDecryptedMessages] = useState<string[]>([]);
 
-  const { encryptedAesKey, getPrivateKey } = useGetEncryptionKeys();
+  const { getEncryptedAesKey, getPrivateKey } = useGetEncryptionKeys();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
       const privateKey = await getPrivateKey().then((key) => key);
+      const encryptedAesKey = await getEncryptedAesKey().then((key) => key);
+
       const aesKey = await decryptAESKey(privateKey, encryptedAesKey);
 
       if (!message) {
@@ -48,6 +50,8 @@ const EncryptionComponent = () => {
 
   const decryptMessages = async () => {
     const privateKey = await getPrivateKey().then((key) => key);
+    const encryptedAesKey = await getEncryptedAesKey().then((key) => key);
+
     const aesKey = await decryptAESKey(privateKey, encryptedAesKey);
 
     if (!aesKey) return;

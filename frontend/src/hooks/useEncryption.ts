@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { requestEncryptedAESKey } from "../services/encryption.service";
 import { useIndexedDB } from "./useIndexedDB";
 
 export const useGetEncryptionKeys = () => {
-  const [encryptedAesKey, setEncryptedAesKey] = useState<string>("");
-
-  const { getPrivateKey, storeKeyPair, removeKeyPair } = useIndexedDB();
+  const {
+    storeKeyPair,
+    storeEncryptedAesKey,
+    removeKeys,
+    getPrivateKey,
+    getEncryptedAesKey,
+  } = useIndexedDB();
 
   // useEffect to generate keys and request encrypted AES key on component mount
   useEffect(() => {
@@ -14,9 +18,6 @@ export const useGetEncryptionKeys = () => {
         // Step 1: Generate RSA key pair
         const keyPair = await generateRSAKeyPair();
 
-        // store keypairs into indexedDB
-        storeKeyPair(keyPair);
-
         const generatedPublicKey = await exportPublicKey(keyPair.publicKey);
 
         // Step 2: Request the encrypted AES key from the backend
@@ -24,7 +25,9 @@ export const useGetEncryptionKeys = () => {
           generatedPublicKey
         );
 
-        setEncryptedAesKey(receivedEncryptedAESKey);
+        // store keypairs into indexedDB
+        storeKeyPair(keyPair);
+        storeEncryptedAesKey(receivedEncryptedAESKey);
       } catch (error) {
         console.error("Error during encryption setup:", error);
       }
@@ -32,11 +35,11 @@ export const useGetEncryptionKeys = () => {
 
     // Cleanup function to clear privateKey when component unmounts
     return () => {
-      removeKeyPair();
+      removeKeys();
     };
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  return { encryptedAesKey, getPrivateKey };
+  return { getEncryptedAesKey, getPrivateKey };
 };
 
 export const decryptAESKey = async (

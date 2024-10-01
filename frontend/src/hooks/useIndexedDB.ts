@@ -25,7 +25,13 @@ export const useIndexedDB = () => {
     console.log("Key pair stored in IndexedDB.");
   };
 
-  const removeKeyPair = async () => {
+  const storeEncryptedAesKey = async (encrypedAesKey: string) => {
+    const db = await initDB();
+    await db.put("keys", encrypedAesKey, "encrypedAesKey");
+    console.log("encryptedAesKey stored in IndexedDB.");
+  };
+
+  const removeKeys = async () => {
     const db = await initDB();
 
     // Delete the private key
@@ -34,7 +40,10 @@ export const useIndexedDB = () => {
     // Delete the public key
     await db.delete("keys", "publicKey");
 
-    console.log("Key pair removed from IndexedDB.");
+    // Delete the encrypted aes key
+    await db.delete("keys", "encrypedAesKey");
+
+    console.log("Keys removed from IndexedDB.");
   };
 
   // Function to get the private key from IndexedDB
@@ -49,10 +58,18 @@ export const useIndexedDB = () => {
     return db.get("keys", "publicKey");
   };
 
+  // Function to get the encrypted aes key from IndexedDB
+  const getEncryptedAesKey = async (): Promise<string> => {
+    const db = await initDB();
+    return db.get("keys", "encrypedAesKey");
+  };
+
   return {
     storeKeyPair,
-    removeKeyPair,
+    storeEncryptedAesKey,
+    removeKeys,
     getPrivateKey,
     getPublicKey,
+    getEncryptedAesKey,
   };
 };
