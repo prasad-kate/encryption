@@ -9,7 +9,7 @@
     "frontend:build": "npm run build --prefix frontend",
     "backend:build": "npm run build --prefix backend",
     "build": "concurrently \"npm run frontend:build\" \"npm run backend:build\"",
-    "frontend:start": "npm start --prefix frontend",
+    "frontend:start": "npm run preview --prefix frontend",
     "backend:start": "npm start --prefix backend",
     "start": "concurrently \"npm run frontend:start\" \"npm run backend:start\""
   },
